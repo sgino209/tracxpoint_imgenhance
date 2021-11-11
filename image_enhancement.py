@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageEnhance
 from tensorflow.python.ops.numpy_ops import np_config
 
-data_dir = '/Users/shahargino/Downloads/TracxPoint'
+data_dir = '/Users/shahargino/data/tracxpoint__data'
 img_files_list = [str(x) for x in Path(data_dir).rglob('*.tif')]
 print('%d images found' % len(img_files_list))
 
 # -----------------------------------------------------------------------
 
-def img_equalization(img):
+def histeq(img):
   """ Apply Image Eualization to the converted image in LAB format to
       only Lightness component and convert back the image to RGB """
 
@@ -34,7 +34,7 @@ def img_equalization(img):
 
 # -----------------------------------------------------------------------
 
-def img_clahe(img, grid_size=(8,8)):
+def clahe(img, grid_size=(8,8)):
   """ Apply CLAHE to the converted image in LAB format to 
       only Lightness component and convert back the image to RGB """
   
@@ -98,17 +98,49 @@ def colorize(image, hue):
 
 # -----------------------------------------------------------------------
 
-def image_enhance(img, gamma=0.001, saturation=3):
-  """ Gamma Correction + CLAHE + Histogram Equalization + Saturation """
+def saturation(img, saturation_factor=3):
+  """ Image Saturation, based on PIL library """
 
-  gamma_img = gamma_correction(img, 0.001)
-  clahe_img = img_clahe(gamma_img.astype(np.uint8))
-  histeq_img = img_equalization(clahe_img)
-  pil_img = Image.fromarray(histeq_img)
-  sat_img = np.array(ImageEnhance.Color(pil_img).enhance(3))
-  sat_img_color = cv2.cvtColor(sat_img, cv2.COLOR_GRAY2BGR)
+  pil_img = Image.fromarray(img)
+  res = np.array(ImageEnhance.Color(pil_img).enhance(saturation_factor))
 
-  return sat_img_color
+  return res
+
+# -----------------------------------------------------------------------
+
+def sharpening(img):
+  """ Image sharpening by a kernel operation """
+  
+  kernel = np.array([[0, -1, 0],
+                     [-1, 5,-1],
+                     [0, -1, 0]])
+  
+  res = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
+
+  return res
+
+# -----------------------------------------------------------------------
+
+def denoise(img, h=10, template_win=7, search_win=21):
+  """ Non-local Means Denoising algorithm to remove noise in the image """
+
+  res = cv2.fastNlMeansDenoisingColored(img, None, h, h, template_win, search_win)
+
+  return res
+
+# -----------------------------------------------------------------------
+
+def image_enhance(img, gamma=0.001, sat=1.1):
+  """ Gamma Correction + Histogram Equalization + CLAHE + Sharpening + Denoise + Saturation """
+
+  gamma_img = gamma_correction(img, gamma)
+  histeq_img = histeq(gamma_img.astype(np.uint8))
+  clahe_img = clahe(histeq_img)
+  sharp_img = sharpening(clahe_img)
+  denoise_img = denoise(sharp_img)
+  sat_img = saturation(denoise_img, sat)
+
+  return sat_img
 
 # -----------------------------------------------------------------------
 
@@ -118,8 +150,8 @@ for k, img_file in enumerate(img_files_list):
   
   print('Processing (%d/%d): %s' % (k+1, len(img_files_list), img_file))
 
-  img = cv2.imread(img_file, cv2.IMREAD_UNCHANGED)
-  ref_img = cv2.imread(img_file.replace('.tif', '.jpg'), cv2.IMREAD_UNCHANGED)
+  tif_img = cv2.imread(img_file, cv2.IMREAD_UNCHANGED)
+  img = cv2.cvtColor(tif_img, cv2.COLOR_BAYER_BG2BGR) 
 
   res_img = image_enhance(img)
 
