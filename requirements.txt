@@ -12,12 +12,16 @@ google-pasta==0.2.0
 grpcio==1.41.1
 h5py==3.5.0
 idna==3.3
+image-quality==1.2.7
+imageio==2.10.4
 keras==2.7.0
 Keras-Preprocessing==1.1.2
 kiwisolver==1.3.2
 libclang==12.0.0
+libsvm==3.23.0.4
 Markdown==3.3.4
 matplotlib==3.4.3
+networkx==2.6.3
 numpy==1.21.3
 oauthlib==3.1.1
 opencv-python==4.5.4.58
@@ -29,9 +33,12 @@ pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pyparsing==3.0.4
 python-dateutil==2.8.2
+PyWavelets==1.2.0
 requests==2.26.0
 requests-oauthlib==1.3.0
 rsa==4.7.2
+scikit-image==0.18.3
+scipy==1.7.2
 six==1.16.0
 tensorboard==2.7.0
 tensorboard-data-server==0.6.1
@@ -40,6 +47,7 @@ tensorflow==2.7.0
 tensorflow-estimator==2.7.0
 tensorflow-io-gcs-filesystem==0.21.0
 termcolor==1.1.0
+tifffile==2021.11.2
 typing-extensions==3.10.0.2
 urllib3==1.26.7
 Werkzeug==2.0.2
