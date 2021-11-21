@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-
-# Created by Shahar Gino at November 2021
-# All rights reserved
-
 import cv2
 import colorsys
 import numpy as np
@@ -14,9 +9,15 @@ from warnings import simplefilter
 from PIL import Image, ImageEnhance
 import imquality.brisque as brisque
 from tensorflow.python.ops.numpy_ops import np_config
+print('OpenCV version: %s' % cv2.__version__)
+print('Tensorflow version: %s' % tf.__version__)
 
 # ignore all future warnings
 simplefilter(action='ignore', category=FutureWarning)
+
+data_dir = '/Users/shahargino/data/tracxpoint__data'
+img_files_list = [str(x) for x in Path(data_dir).rglob('*.tif')]
+print('%d images found' % len(img_files_list))
 
 # -----------------------------------------------------------------------
 
@@ -40,11 +41,11 @@ def histeq(img):
 
 # -----------------------------------------------------------------------
 
-def clahe(img, grid_size=8):
+def clahe(img, grid_size=(8,8)):
   """ Apply CLAHE to the converted image in LAB format to 
       only Lightness component and convert back the image to RGB """
   
-  clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(grid_size,grid_size))
+  clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=grid_size)
   
   # Color input:
   if len(img.shape) == 3:
@@ -169,83 +170,52 @@ def iqa_score(img, resize=(380, 507)):
 
 # -----------------------------------------------------------------------
 
-def image_enhance(img, params):
+def image_enhance(img, gamma=0.001, sat=1.1, denoise_h=10):
   """ Gamma Correction + Histogram Equalization + CLAHE + Local Denoise + Sharpening + NonLocal Denoise + Saturation """
 
-  gamma_img = gamma_correction(img, params['gamma'])
+  gamma_img = gamma_correction(img, gamma)
   histeq_img = histeq(gamma_img.astype(np.uint8))
-  clahe_img = clahe(histeq_img, params['clahe_grid'])
-  if params['denoise_mode'] == 'disabled':
-    denoise_img = clahe_img
-  else:
-    denoise_img = denoise(clahe_img, params['denoise_mode'], params['denoise_median_kernel'], params['denoise_d'],
-                          params['denoise_sigmaColor'], params['denoise_sigmaSpace'])  
-  nl_denoise_img = nl_denoise(denoise_img, params['nl_denoise_h'], params['nl_denoise_template_win'], params['nl_denoise_search_win'],
-                              params['nl_denoise_temporal_index'], params['nl_demnoise_temporal_window'])
+  clahe_img = clahe(histeq_img)
+  #denoise_img = denoise(clahe_img)  
+  nl_denoise_img = nl_denoise(clahe_img, denoise_h)
   sharp_img = sharpening(nl_denoise_img)
-  sat_img = saturation(sharp_img, params['saturation'])
+  sat_img = saturation(sharp_img, sat)
 
   return sat_img
 
 # -----------------------------------------------------------------------
 
-def image_enhance_defparams():
+print('Started')
 
-  params = {
-    
-    'gamma': 0.001,
+#zoom_in = lambda img: img[800:2200,1500:2200,:]
+zoom_in = lambda img: img[1800:2200,2000:2200,:]
 
-    'clahe_grid': 8,
+for k, img_file in enumerate(img_files_list):
 
-    'denoise_mode': 'disabled',
-    'denoise_median_kernel': 11,
-    'denoise_d': 9,
-    'denoise_sigmaColor': 75,
-    'denoise_sigmaSpace': 75,
+  if img_file.endswith('25_0_1636473372301969.tif'):
 
-    'nl_denoise_h': 10,
-    'nl_denoise_template_win': 7,
-    'nl_denoise_search_win': 21,
-    'nl_denoise_temporal_index': 2,
-    'nl_demnoise_temporal_window': 3,
-    
-    'saturation': 1.1
-  }
+    print('Processing (%d/%d): %s' % (k+1, len(img_files_list), img_file))
 
-  return params
+    bayer_img = cv2.imread(img_file, cv2.IMREAD_UNCHANGED)
+    tif_img = cv2.cvtColor(bayer_img, cv2.COLOR_BAYER_BG2BGR)
+      
+    tif_score = iqa_score(tif_img.astype(np.uint8))
+
+    for h in range(0,31,2):
+
+      res_img = image_enhance(tif_img, gamma=0.001, sat=1.1, denoise_h=h)
+
+      res_score = iqa_score(res_img)
+      
+      print("h=%d --> %.2f" % (h, res_score))
+
+      out_file = img_file.replace(data_dir, 'results').replace('.tif', '_h%d_iqa_%.2f_to_%.2f.tif' % (h, tif_score, res_score))
+      out_dir = path.dirname(out_file)
+      if not path.exists(out_dir):
+        makedirs(out_dir)
+      cv2.imwrite(out_file, zoom_in(res_img))
 
 # -----------------------------------------------------------------------
 
-if __name__ == "__main__":
-
-  print('Started')
- 
-  print('OpenCV version: %s' % cv2.__version__)
-  print('Tensorflow version: %s' % tf.__version__)
-     
-  data_dir = '/Users/shahargino/data/tracxpoint__data'
-  img_files_list = [str(x) for x in Path(data_dir).rglob('*.tif')]
-  print('%d images found' % len(img_files_list))
- 
-  params = image_enhance_defparams()
- 
-  for k, img_file in enumerate(img_files_list):
-  
-    print('Processing (%d/%d): %s' % (k+1, len(img_files_list), img_file))
-  
-    bayer_img = cv2.imread(img_file, cv2.IMREAD_UNCHANGED)
-    tif_img = cv2.cvtColor(bayer_img, cv2.COLOR_BAYER_BG2BGR)
-  
-    res_img = image_enhance(tif_img, params)
-  
-    tif_score = iqa_score(tif_img.astype(np.uint8))
-    res_score = iqa_score(res_img)
-  
-    out_file = img_file.replace(data_dir, 'results').replace('.tif', '_iqa_%.2f_to_%.2f.tif' % (tif_score, res_score))
-    out_dir = path.dirname(out_file)
-    if not path.exists(out_dir):
-      makedirs(out_dir)
-    cv2.imwrite(out_file, res_img)
-  
-  print('completed successfully')
+print('completed successfully')
 
