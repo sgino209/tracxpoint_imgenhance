@@ -116,7 +116,12 @@ class Ui_MainWindow(object):
         
         self.pushButton_5 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_5.setObjectName("pushButton_5")
+        self.pushButton_5.hide()
         self.verticalLayout_2.addWidget(self.pushButton_5)
+        
+        self.pushButton_6 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_6.setObjectName("pushButton_6")
+        self.verticalLayout_2.addWidget(self.pushButton_6)
         
         self.gridLayout.addLayout(self.verticalLayout_2, 1, 0, 1, 1)
         
@@ -140,7 +145,8 @@ class Ui_MainWindow(object):
         self.pushButton_2.clicked.connect(self.loadImage)
         self.pushButton_3.clicked.connect(self.launch)
         self.pushButton_4.clicked.connect(self.toggle_params)
-        self.pushButton_5.clicked.connect(self.quit)
+        self.pushButton_5.clicked.connect(self.image_quality)
+        self.pushButton_6.clicked.connect(self.quit)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         
         # Variables initialization:
@@ -167,9 +173,19 @@ class Ui_MainWindow(object):
                 params[param_name] = float(params[param_name])
 
         res_img = image_enhance(self.image, params)
-        res_score = iqa_score(res_img)
 
         self.setPhoto(res_img)
+    
+    # -----------------------------------------------------------------------------------------
+
+    def image_quality(self, quiet=False):
+        
+        res_score = iqa_score(self.tmp_img)
+
+        if not quiet:
+            QtWidgets.QMessageBox.information(None, "Image Viewer", "Image Quality (lower=better): %.3f" % res_score)
+
+        return res_score
 
     # -----------------------------------------------------------------------------------------
 
@@ -222,6 +238,7 @@ class Ui_MainWindow(object):
         self.pushButton.show()
         self.pushButton_3.show()
         self.pushButton_4.show()
+        self.pushButton_5.show()
         
     # -----------------------------------------------------------------------------------------
     
@@ -254,7 +271,8 @@ class Ui_MainWindow(object):
         self.pushButton_2.setText(_translate("MainWindow", "Open"))
         self.pushButton_3.setText(_translate("MainWindow", "Launch"))
         self.pushButton_4.setText(_translate("MainWindow", "Toggle Params"))
-        self.pushButton_5.setText(_translate("MainWindow", "Exit"))
+        self.pushButton_5.setText(_translate("MainWindow", "Image Quality"))
+        self.pushButton_6.setText(_translate("MainWindow", "Exit"))
         for param_name in self.defparams.keys():
             label_obj_name = '%s_label' % param_name
             label_obj = getattr(self, label_obj_name)
