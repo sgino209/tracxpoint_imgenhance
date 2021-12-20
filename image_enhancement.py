@@ -31,7 +31,7 @@ def histeq(img):
     lab_planes[0] = cv2.equalizeHist(lab_planes[0])
     lab = cv2.merge(lab_planes)
     res = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-  
+
   # Gray input:
   else:
     res = cv2.equalizeHist(img.astype(np.uint8))
@@ -41,11 +41,11 @@ def histeq(img):
 # -----------------------------------------------------------------------
 
 def clahe(img, grid_size=8):
-  """ Apply CLAHE to the converted image in LAB format to 
+  """ Apply CLAHE to the converted image in LAB format to
       only Lightness component and convert back the image to RGB """
-  
+
   clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(grid_size,grid_size))
-  
+
   # Color input:
   if len(img.shape) == 3:
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
@@ -74,7 +74,7 @@ def gamma_correction(img, gamma=0.001):
 
   if img.dtype == np.uint8:
     res = cv2.LUT(img, table)
-  
+
   else:
     res = tf.image.adjust_gamma(img/max_val, gamma=gamma, gain=max_val).numpy()
 
@@ -116,11 +116,11 @@ def saturation(img, saturation_factor=1.1):
 
 def sharpening(img):
   """ Image sharpening by a kernel operation """
-  
+
   kernel = np.array([[0, -1, 0],
                      [-1, 5,-1],
                      [0, -1, 0]])
-  
+
   res = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
 
   return res
@@ -132,7 +132,7 @@ def denoise(img, mode='bilateral', median_kernel=11, d=9, sigmaColor=75, sigmaSp
 
   if mode == 'median':
     res = cv2.medianBlur(img, median_kernel)
-  
+
   elif mode == 'bilateral':
     res = cv2.bilateralFilter(img, d, sigmaColor, sigmaSpace)
 
@@ -146,7 +146,7 @@ def denoise(img, mode='bilateral', median_kernel=11, d=9, sigmaColor=75, sigmaSp
 def nl_denoise(img, h=10, template_win=7, search_win=21, temporal_index=2, temporal_window=3):
   """ Non-local Means Denoising algorithm to remove noise in the image
       If img is a list of images, then temporal information will be exploit.
-      For example, if img is a list of 5 frames, and temporal_index=2 and 
+      For example, if img is a list of 5 frames, and temporal_index=2 and
       temopral_window=3 then frame-1, frame-2 and frame-3 are used to denoise frame-2 """
 
   if type(img) == list:
@@ -161,7 +161,7 @@ def nl_denoise(img, h=10, template_win=7, search_win=21, temporal_index=2, tempo
 
 def iqa_score(img, resize=(380, 507)):
   """ Image Quality Assessment with no-reference, return the BRISQUE score """
-  
+
   resized_img = cv2.resize(img, resize)
   iqa_score = brisque.score(resized_img)
 
@@ -179,11 +179,14 @@ def image_enhance(img, params):
     denoise_img = clahe_img
   else:
     denoise_img = denoise(clahe_img, params['denoise_mode'], params['denoise_median_kernel'], params['denoise_d'],
-                          params['denoise_sigmaColor'], params['denoise_sigmaSpace'])  
+                          params['denoise_sigmaColor'], params['denoise_sigmaSpace'])
   nl_denoise_img = nl_denoise(denoise_img, params['nl_denoise_h'], params['nl_denoise_template_win'], params['nl_denoise_search_win'],
                               params['nl_denoise_temporal_index'], params['nl_demnoise_temporal_window'])
-  sharp_img = sharpening(nl_denoise_img)
-  sat_img = saturation(sharp_img, params['saturation'])
+  if params['sharpening_mode'] == 'disabled':
+    sat_img = saturation(nl_denoise_img, params['saturation'])
+  else:
+    sharp_img = sharpening(nl_denoise_img)
+    sat_img = saturation(sharp_img, params['saturation'])
 
   return sat_img
 
@@ -192,7 +195,7 @@ def image_enhance(img, params):
 def image_enhance_defparams():
 
   params = {
-    
+
     'gamma': 0.001,
 
     'clahe_grid': 8,
@@ -208,7 +211,9 @@ def image_enhance_defparams():
     'nl_denoise_search_win': 21,
     'nl_denoise_temporal_index': 2,
     'nl_demnoise_temporal_window': 3,
-    
+
+    'sharpening_mode': 'enabled',
+
     'saturation': 1.1
   }
 
@@ -219,33 +224,33 @@ def image_enhance_defparams():
 if __name__ == "__main__":
 
   print('Started')
- 
+
   print('OpenCV version: %s' % cv2.__version__)
   print('Tensorflow version: %s' % tf.__version__)
-     
+
   data_dir = '/Users/shahargino/data/tracxpoint__data'
   img_files_list = [str(x) for x in Path(data_dir).rglob('*.tif')]
   print('%d images found' % len(img_files_list))
- 
+
   params = image_enhance_defparams()
- 
+
   for k, img_file in enumerate(img_files_list):
-  
+
     print('Processing (%d/%d): %s' % (k+1, len(img_files_list), img_file))
-  
+
     bayer_img = cv2.imread(img_file, cv2.IMREAD_UNCHANGED)
     tif_img = cv2.cvtColor(bayer_img, cv2.COLOR_BAYER_BG2BGR)
-  
+
     res_img = image_enhance(tif_img, params)
-  
+
     tif_score = iqa_score(tif_img.astype(np.uint8))
     res_score = iqa_score(res_img)
-  
+
     out_file = img_file.replace(data_dir, 'results').replace('.tif', '_iqa_%.2f_to_%.2f.tif' % (tif_score, res_score))
     out_dir = path.dirname(out_file)
     if not path.exists(out_dir):
       makedirs(out_dir)
     cv2.imwrite(out_file, res_img)
-  
+
   print('completed successfully')
 
